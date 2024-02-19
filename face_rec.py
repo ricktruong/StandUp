@@ -22,17 +22,21 @@ javi_face_encoding = face_recognition.face_encodings(javi_image)[0]
 reymon_image = face_recognition.load_image_file("reymon.png")
 reymon_face_encoding = face_recognition.face_encodings(reymon_image)[0]
 
+girlfriend_image = face_recognition.load_image_file("girlfriend.png")
+girlfriend_face_encoding = face_recognition.face_encodings(reymon_image)[0]
 
 
 # Create arrays of known face encodings and their names
 known_face_encodings = [
     javi_face_encoding,
-    reymon_face_encoding
+    reymon_face_encoding,
+    girlfriend_face_encoding
 ]
 
 known_face_names = [
     "Javi In The Matrix",
-    "Reymon"
+    "Reymon",
+    "Girlfriend"
 ]
 
 # Initialize some variables
