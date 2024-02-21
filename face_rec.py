@@ -1,32 +1,43 @@
 import face_recognition
 import cv2
 import numpy as np
-
-""" face_recognition Setup """
-# Load image of Obama and learn to recognize Obama
-obama_image = face_recognition.load_image_file("known_pictures/obama.jpg")
-obama_face_encoding = face_recognition.face_encodings(obama_image)[0]
-
-# Load image of Biden and learn to recognize Biden
-biden_image = face_recognition.load_image_file("known_pictures/biden.jpg")
-biden_face_encoding = face_recognition.face_encodings(biden_image)[0]
-
-# Load image of Trump and learn to recognize Trump
-trump_image = face_recognition.load_image_file("known_pictures/trump.jpg")
-trump_face_encodings = face_recognition.face_encodings(trump_image)[0]
-
-# Load image of Rick and learn to recognize Rick
-rick_image = face_recognition.load_image_file("known_pictures/rick1.jpg")
-rick_face_encodings = face_recognition.face_encodings(rick_image)[0]
-
-# Known face encodings and labels
-known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings]
-known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Me Myself and I"]
+from tkinter import *
 
 
-""" Webcam OpenCV Functionality """
+# Initialize tkinter message window
+main = Tk()
+
+def show_warning():
+    warning_label = Label(main, text='Warning: Look away from the screen!')
+    warning_label.pack()
+
 # Get a reference to webcam #0 (the default one)
 video_capture = cv2.VideoCapture(0)
+
+# Load a sample picture and learn how to recognize it.
+javi_image = face_recognition.load_image_file("javi.png")
+javi_face_encoding = face_recognition.face_encodings(javi_image)[0]
+
+# Load a second sample picture and learn how to recognize it.
+reymon_image = face_recognition.load_image_file("reymon.png")
+reymon_face_encoding = face_recognition.face_encodings(reymon_image)[0]
+
+girlfriend_image = face_recognition.load_image_file("girlfriend.png")
+girlfriend_face_encoding = face_recognition.face_encodings(reymon_image)[0]
+
+
+# Create arrays of known face encodings and their names
+known_face_encodings = [
+    javi_face_encoding,
+    reymon_face_encoding,
+    girlfriend_face_encoding
+]
+
+known_face_names = [
+    "Javi In The Matrix",
+    "Reymon",
+    "Girlfriend"
+]
 
 # Initialize some variables
 face_locations = []
@@ -34,7 +45,13 @@ face_encodings = []
 face_names = []
 process_this_frame = True
 
-while True:
+# Function to reset the warning after it's shown
+def reset_warning():
+    for widget in main.winfo_children():
+        widget.destroy()
+
+def process_frame():
+    global face_locations, face_encodings, face_names, process_this_frame
     # Grab a single frame of video
     ret, frame = video_capture.read()
 
@@ -45,7 +62,7 @@ while True:
 
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = np.ascontiguousarray(small_frame[:, :, ::-1])
-        
+
         # Find all the faces and face encodings in the current frame of video
         face_locations = face_recognition.face_locations(rgb_small_frame)
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
@@ -54,23 +71,22 @@ while True:
         for face_encoding in face_encodings:
             # See if the face is a match for the known face(s)
             matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-            name = "Unknown"
-
-            # # If a match was found in known_face_encodings, just use the first one.
-            # if True in matches:
-            #     first_match_index = matches.index(True)
-            #     name = known_face_names[first_match_index]
+            name = "Who Disss??"
 
             # Or instead, use the known face with the smallest distance to the new face
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
+                ''' Warning Message Timers '''
+                # If a face is recognized, show the warning after 30 seconds
+                main.after(10000, show_warning)
+                # Reset the warning after 5 seconds
+                main.after(15000, reset_warning)
 
             face_names.append(name)
 
     process_this_frame = not process_this_frame
-
 
     # Display the results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
@@ -93,7 +109,12 @@ while True:
 
     # Hit 'q' on the keyboard to quit!
     if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+        main.destroy()
+    else:
+        main.after(10, process_frame)
+
+main.after(10, process_frame)
+main.mainloop()
 
 # Release handle to the webcam
 video_capture.release()
