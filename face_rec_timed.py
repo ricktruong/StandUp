@@ -15,11 +15,6 @@ if CHECK_INTERVAL >= STAND_INTERVAL:
 start = time.time()
 current = time.time()
 
-measureSecond1 = time.time()
-time.sleep(1)
-measureSecone2 = time.time()
-print(measureSecone2 - measureSecond1)
-
 def list_camera_devices():
     # checks the first 10 indexes.
     index = 0
