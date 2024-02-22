@@ -6,6 +6,7 @@ import time
 # Both measured in seconds
 CHECK_INTERVAL = 15
 STAND_INTERVAL = 60 * 1
+FACE_ABSENCE_THRESHOLD = 30  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
 
 # We don't want to tell them to stand up more often than we check
 if CHECK_INTERVAL >= STAND_INTERVAL:
@@ -19,6 +20,23 @@ time.sleep(1)
 measureSecone2 = time.time()
 print(measureSecone2 - measureSecond1)
 
+def list_camera_devices():
+    # checks the first 10 indexes.
+    index = 0
+    arr = []
+    i = 10
+    while i > 0:
+        cap = cv2.VideoCapture(index)
+        if cap.read()[0]:
+            arr.append(index)
+            cap.release()
+        index += 1
+        i -= 1
+    return arr
+def change_camera(camera_index):
+    global video_capture
+    video_capture.release()
+    video_capture = cv2.VideoCapture(camera_index)
 def interval():
     global start
     global current
@@ -64,7 +82,13 @@ known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Me Myself and 
 
 """ Webcam OpenCV Functionality """
 # Get a reference to webcam #0 (the default one)
-video_capture = cv2.VideoCapture(0)
+available_cameras = list_camera_devices()
+if not available_cameras:
+    print("No Cameras Found")
+    exit()
+video_capture = cv2.VideoCapture(available_cameras[0])
+current_camera_index = 0
+
 
 # Initialize some variables
 face_locations = []
@@ -72,6 +96,8 @@ face_encodings = []
 face_names = []
 process_this_frame = True
 stand_command = False
+stand_command_message = False
+face_absent_start = None  # Timestamp of when a face was last seen
 
 while True:
     # Grab a single frame of video
@@ -108,12 +134,20 @@ while True:
 
             face_names.append(name)
 
+        if face_names:  # If there are faces detected
+            face_absent_start = None  # Reset the absence timer
+        else:  # No face detected
+            if face_absent_start is None:
+                face_absent_start = time.time()  # Start the timer
+            elif time.time() - face_absent_start > FACE_ABSENCE_THRESHOLD:
+                stand_command_message = False
+
     # process_this_frame = not process_this_frame
 
     if stand_command:
+        stand_command_message = True
         stand_command = False
         print("Stand up")
-
     # Display the results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale back up face locations since the frame we detected in was scaled to 1/4 size
@@ -130,6 +164,12 @@ while True:
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
+    if stand_command_message:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        message = "Stand up!"
+        cv2.putText(frame, message, (left + 15, top + 6), font, 1.0, (0, 255, 0), 2)
+
+
     # Display the resulting image
     cv2.imshow('Video', frame)
 
@@ -139,8 +179,14 @@ while True:
     process_this_frame = values[0]
     stand_command = values[1]
 
-    # Hit 'q' on the keyboard to quit!
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    # Check for camera change command
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('n'):  # Press 'n' to switch to the next camera
+        current_camera_index += 1
+        if current_camera_index >= len(available_cameras):
+            current_camera_index = 0
+        change_camera(available_cameras[current_camera_index])
+    elif key == ord('q'): # Hit 'q' on the keyboard to quit!
         break
 
 # Release handle to the webcam
