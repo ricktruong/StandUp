@@ -15,28 +15,16 @@ def show_warning():
 video_capture = cv2.VideoCapture(0)
 
 # Load a sample picture and learn how to recognize it.
-javi_image = face_recognition.load_image_file("javi.png")
+javi_image = face_recognition.load_image_file("/Users/javiflores/Desktop/stand_up/StandUp/known_pictures/javi.png")
 javi_face_encoding = face_recognition.face_encodings(javi_image)[0]
-
-# Load a second sample picture and learn how to recognize it.
-reymon_image = face_recognition.load_image_file("reymon.png")
-reymon_face_encoding = face_recognition.face_encodings(reymon_image)[0]
-
-girlfriend_image = face_recognition.load_image_file("girlfriend.png")
-girlfriend_face_encoding = face_recognition.face_encodings(reymon_image)[0]
-
 
 # Create arrays of known face encodings and their names
 known_face_encodings = [
-    javi_face_encoding,
-    reymon_face_encoding,
-    girlfriend_face_encoding
+    javi_face_encoding
 ]
 
 known_face_names = [
-    "Javi In The Matrix",
-    "Reymon",
-    "Girlfriend"
+    "Javi In The Matrix"
 ]
 
 # Initialize some variables
