@@ -2,11 +2,12 @@ import face_recognition
 import cv2
 import numpy as np
 import time
+from datetime import timedelta
 
 # Both measured in seconds
-CHECK_INTERVAL = 15
-STAND_INTERVAL = 60 * 1
-FACE_ABSENCE_THRESHOLD = 30  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
+CHECK_INTERVAL = 3
+STAND_INTERVAL = 10 * 1
+FACE_ABSENCE_THRESHOLD = 15  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
 
 # We don't want to tell them to stand up more often than we check
 if CHECK_INTERVAL >= STAND_INTERVAL:
@@ -93,8 +94,17 @@ process_this_frame = True
 stand_command = False
 stand_command_message = False
 face_absent_start = None  # Timestamp of when a face was last seen
-
+stand_command_message_start_time = None
+cumulative_absence_duration = 0.0  # Total time the user has been absent
+last_absence_check_time = None  # Last time we checked for absence
+left = 0
+top = 0
 while True:
+    # Check if there is a good time to stand up
+    values = interval()
+    process_this_frame = values[0]
+    stand_command = values[1]
+
     # Grab a single frame of video
     ret, frame = video_capture.read()
 
@@ -129,18 +139,33 @@ while True:
 
             face_names.append(name)
 
-        if face_names:  # If there are faces detected
-            face_absent_start = None  # Reset the absence timer
-        else:  # No face detected
-            if face_absent_start is None:
-                face_absent_start = time.time()  # Start the timer
-            elif time.time() - face_absent_start > FACE_ABSENCE_THRESHOLD:
+        
+    current_time = time.time()
+    if face_names:  # If any face is detected
+        # User is present; pause the timer by not updating the cumulative_absence_duration
+        if last_absence_check_time is not None:
+            last_absence_check_time = current_time  # Update the last check time to now
+    elif stand_command_message:
+        # No known face detected; check if this is the first time we're noticing they're gone
+        if last_absence_check_time is None:
+            last_absence_check_time = current_time
+        else:
+            # Calculate how long it's been since we last updated the absence duration
+            time_since_last_check = current_time - last_absence_check_time
+            cumulative_absence_duration += time_since_last_check
+            last_absence_check_time = current_time
+
+            # Check if the cumulative absence duration exceeds the threshold
+            if cumulative_absence_duration > FACE_ABSENCE_THRESHOLD:
                 stand_command_message = False
+                cumulative_absence_duration = 0.0  # Reset the absence duration as user is present and has been notified
+                last_absence_check_time = None
 
     # process_this_frame = not process_this_frame
 
     if stand_command:
         stand_command_message = True
+        stand_command_message_start_time = time.time()
         stand_command = False
         print("Stand up")
     # Display the results
@@ -159,20 +184,24 @@ while True:
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
+        if stand_command_message:
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            message = "Stand up!"
+            cv2.putText(frame, message, (left + 15, top - 20), font, 1.0, (0, 255, 0), 2)
+        
     if stand_command_message:
         font = cv2.FONT_HERSHEY_SIMPLEX
-        message = "Stand up!"
-        cv2.putText(frame, message, (left + 15, top + 6), font, 1.0, (0, 255, 0), 2)
+        remaining_time = max(FACE_ABSENCE_THRESHOLD - cumulative_absence_duration, 0)
+        remaining_time_delta = timedelta(seconds=remaining_time)
+        minutes, seconds = divmod(remaining_time_delta.seconds, 60)
+        formatted_time = f"{minutes:02d}:{seconds:02d}"
+        message = f"Time Remaining: {formatted_time}!"
+        cv2.putText(frame, message, (left-80, top - 50), font, 1.0, (252, 186, 3), 2)
+
 
 
     # Display the resulting image
     cv2.imshow('Video', frame)
-
-    # Check if there is a good time to stand up
-    values = interval()
-
-    process_this_frame = values[0]
-    stand_command = values[1]
 
     # Check for camera change command
     key = cv2.waitKey(1) & 0xFF
