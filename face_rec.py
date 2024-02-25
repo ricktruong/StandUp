@@ -8,7 +8,7 @@ from tkinter import *
 main = Tk()
 
 def show_warning():
-    warning_label = Label(main, text='Warning: Look away from the screen!')
+    warning_label = Label(main, text="Warning: Look away from the screen!")
     warning_label.pack()
 
 # Get a reference to webcam #0 (the default one)
@@ -24,7 +24,7 @@ known_face_encodings = [
 ]
 
 known_face_names = [
-    "Javi In The Matrix"
+    "Javier"
 ]
 
 # Initialize some variables
@@ -32,14 +32,19 @@ face_locations = []
 face_encodings = []
 face_names = []
 process_this_frame = True
+current_user = None
+current_user_start_time = None
+warning_displayed = False
 
 # Function to reset the warning after it's shown
 def reset_warning():
+    global warning_displayed
     for widget in main.winfo_children():
         widget.destroy()
+    warning_displayed = False
 
 def process_frame():
-    global face_locations, face_encodings, face_names, process_this_frame
+    global face_locations, face_encodings, face_names, process_this_frame, current_user, current_user_start_time, warning_displayed
     # Grab a single frame of video
     ret, frame = video_capture.read()
 
@@ -59,18 +64,31 @@ def process_frame():
         for face_encoding in face_encodings:
             # See if the face is a match for the known face(s)
             matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-            name = "Who Disss??"
+            name = "Unknown"
 
             # Or instead, use the known face with the smallest distance to the new face
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
-                ''' Warning Message Timers '''
-                # If a face is recognized, show the warning after 30 seconds
-                main.after(10000, show_warning)
-                # Reset the warning after 5 seconds
-                main.after(15000, reset_warning)
+
+                # If new user detected reset timing variable
+                if name != current_user:
+                    current_user = name
+                    current_user_start_time = cv2.getTickCount()
+                    reset_warning()
+
+                # If user recognized show warning after 15
+                if face_locations:  # Check if faces are detected
+                    elapsed_time = (cv2.getTickCount() - current_user_start_time) / cv2.getTickFrequency()
+                    if elapsed_time > 10 and not warning_displayed:
+                        main.after(10000, show_warning)
+                        ''' Put in else statement '''
+                        if warning_displayed:
+                            main.after(5000, reset_warning)
+                            warning_displayed = False
+                        #main.after(15000, reset_warning)
+                        warning_displayed = True
 
             face_names.append(name)
 
