@@ -85,6 +85,8 @@ def process_frame():
                         main.after(10000, show_warning)
                         main.after(20000, reset_warning)
                         warning_displayed = True
+                else:
+                    warning_displayed = False
 
             face_names.append(name)
 
