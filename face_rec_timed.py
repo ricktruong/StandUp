@@ -29,10 +29,12 @@ def list_camera_devices():
         index += 1
         i -= 1
     return arr
+
 def change_camera(camera_index):
     global video_capture
     video_capture.release()
     video_capture = cv2.VideoCapture(camera_index)
+
 def interval():
     global start
     global current
@@ -126,11 +128,6 @@ while True:
             matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
             name = "Unknown"
 
-            # # If a match was found in known_face_encodings, just use the first one.
-            # if True in matches:
-            #     first_match_index = matches.index(True)
-            #     name = known_face_names[first_match_index]
-
             # Or instead, use the known face with the smallest distance to the new face
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             best_match_index = np.argmin(face_distances)
@@ -168,6 +165,7 @@ while True:
         stand_command_message_start_time = time.time()
         stand_command = False
         print("Stand up")
+    
     # Display the results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale back up face locations since the frame we detected in was scaled to 1/4 size
@@ -197,8 +195,6 @@ while True:
         formatted_time = f"{minutes:02d}:{seconds:02d}"
         message = f"Time Remaining: {formatted_time}!"
         cv2.putText(frame, message, (left-80, top - 50), font, 1.0, (252, 186, 3), 2)
-
-
 
     # Display the resulting image
     cv2.imshow('Video', frame)
