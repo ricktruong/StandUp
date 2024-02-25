@@ -78,7 +78,7 @@ def process_frame():
                     current_user_start_time = cv2.getTickCount()
                     reset_warning()
 
-                # If user recognized show warning after 15
+                # If user recognized show warning after 10
                 if face_locations:  # Check if faces are detected
                     elapsed_time = (cv2.getTickCount() - current_user_start_time) / cv2.getTickFrequency()
                     if elapsed_time > 10 and not warning_displayed:
