@@ -73,8 +73,12 @@ trump_face_encodings = face_recognition.face_encodings(trump_image)[0]
 rick_image = face_recognition.load_image_file("known_pictures/rick1.jpg")
 rick_face_encodings = face_recognition.face_encodings(rick_image)[0]
 
+# Load image of Daniel and learn to recognize Rick
+daniel_image = face_recognition.load_image_file("known_pictures/daniel.jpg")
+daniel_face_encodings = face_recognition.face_encodings(daniel_image)[0]
+
 # Known face encodings and labels
-known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings]
+known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings, daniel_face_encodings]
 known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Me Myself and I"]
 
 
