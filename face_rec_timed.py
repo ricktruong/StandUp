@@ -16,6 +16,31 @@ if CHECK_INTERVAL >= STAND_INTERVAL:
 start = time.time()
 current = time.time()
 
+
+def add_new_face(new_face_encoding, new_face_name):
+    # Append the new face encoding and name to the known faces
+    known_face_encodings.append(new_face_encoding)
+    known_face_names.append(new_face_name)
+
+# Function to prompt for a name and add the new face
+def prompt_for_name(face_image):
+    # Display the face image in the window
+    cv2.imshow('Video', frame)
+    cv2.waitKey(1) #Pause
+    
+    # Prompt the user for a name for the unrecognized face
+    print("An unrecognized face was detected.")
+    name = input("Please enter a name for the new face: ")
+    
+    # Learn the new face by encoding it
+    rgb_face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+    new_face_encoding = face_recognition.face_encodings(rgb_face_image)[0]
+
+    # Add the new face to the known faces
+    add_new_face(new_face_encoding, name)
+    return name
+    
+
 def list_camera_devices():
     # checks the first 10 indexes.
     index = 0
@@ -29,12 +54,10 @@ def list_camera_devices():
         index += 1
         i -= 1
     return arr
-
 def change_camera(camera_index):
     global video_capture
     video_capture.release()
     video_capture = cv2.VideoCapture(camera_index)
-
 def interval():
     global start
     global current
@@ -137,6 +160,12 @@ while True:
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
+
+            if name == "Unknown":
+                # Crop the face from the frame
+                top, right, bottom, left = [v * 4 for v in face_locations[face_encodings.index(face_encoding)]]
+                face_image = frame[top:bottom, left:right]
+                name = prompt_for_name(face_image)
 
             face_names.append(name)
 
