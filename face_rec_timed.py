@@ -150,22 +150,28 @@ while True:
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
         face_names = []
-        for face_encoding in face_encodings:
-            # See if the face is a match for the known face(s)
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        for index, current_face_encoding in enumerate(face_encodings):
+            matches = face_recognition.compare_faces(known_face_encodings, current_face_encoding)
             name = "Unknown"
 
-            # Or instead, use the known face with the smallest distance to the new face
-            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-            best_match_index = np.argmin(face_distances)
-            if matches[best_match_index]:
-                name = known_face_names[best_match_index]
-
-            if name == "Unknown":
-                # Crop the face from the frame
-                top, right, bottom, left = [v * 4 for v in face_locations[face_encodings.index(face_encoding)]]
-                face_image = frame[top:bottom, left:right]
-                name = prompt_for_name(face_image)
+            # If a match was found in known_face_encodings, just use the first one.
+            if True in matches:
+                first_match_index = matches.index(True)
+                name = known_face_names[first_match_index]
+            else:
+                # If the face is unknown, process it
+                if name == "Unknown":
+                    # Find the face location using the current index
+                    top, right, bottom, left = face_locations[index]
+                    # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
+                    top *= 4
+                    right *= 4
+                    bottom *= 4
+                    left *= 4
+                    face_image = frame[top:bottom, left:right]
+                    prompt_for_name(face_image)
+                    # Break after handling the first unknown face to avoid multiple prompts in a single frame
+                    break
 
             face_names.append(name)
 
