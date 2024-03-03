@@ -102,7 +102,7 @@ daniel_face_encodings = face_recognition.face_encodings(daniel_image)[0]
 
 # Known face encodings and labels
 known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings, daniel_face_encodings]
-known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Me Myself and I", "DoctorDothraki"]
+known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Rick", "DoctorDothraki"]
 
 
 """ Webcam OpenCV Functionality """
