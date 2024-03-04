@@ -16,6 +16,31 @@ if CHECK_INTERVAL >= STAND_INTERVAL:
 start = time.time()
 current = time.time()
 
+
+def add_new_face(new_face_encoding, new_face_name):
+    # Append the new face encoding and name to the known faces
+    known_face_encodings.append(new_face_encoding)
+    known_face_names.append(new_face_name)
+
+# Function to prompt for a name and add the new face
+def prompt_for_name(face_image):
+    # Display the face image in the window
+    cv2.imshow('Video', frame)
+    cv2.waitKey(1) #Pause
+    
+    # Prompt the user for a name for the unrecognized face
+    print("An unrecognized face was detected.")
+    name = input("Please enter a name for the new face: ")
+    
+    # Learn the new face by encoding it
+    rgb_face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+    new_face_encoding = face_recognition.face_encodings(rgb_face_image)[0]
+
+    # Add the new face to the known faces
+    add_new_face(new_face_encoding, name)
+    return name
+    
+
 def list_camera_devices():
     # checks the first 10 indexes.
     index = 0
@@ -29,12 +54,10 @@ def list_camera_devices():
         index += 1
         i -= 1
     return arr
-
 def change_camera(camera_index):
     global video_capture
     video_capture.release()
     video_capture = cv2.VideoCapture(camera_index)
-
 def interval():
     global start
     global current
@@ -73,9 +96,13 @@ trump_face_encodings = face_recognition.face_encodings(trump_image)[0]
 rick_image = face_recognition.load_image_file("known_pictures/rick1.jpg")
 rick_face_encodings = face_recognition.face_encodings(rick_image)[0]
 
+# Load image of Daniel and learn to recognize Rick
+daniel_image = face_recognition.load_image_file("known_pictures/daniel.jpg")
+daniel_face_encodings = face_recognition.face_encodings(daniel_image)[0]
+
 # Known face encodings and labels
-known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings]
-known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Me Myself and I"]
+known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings, daniel_face_encodings]
+known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Rick", "DoctorDothraki"]
 
 
 """ Webcam OpenCV Functionality """
@@ -123,16 +150,28 @@ while True:
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
         face_names = []
-        for face_encoding in face_encodings:
-            # See if the face is a match for the known face(s)
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        for index, current_face_encoding in enumerate(face_encodings):
+            matches = face_recognition.compare_faces(known_face_encodings, current_face_encoding)
             name = "Unknown"
 
-            # Or instead, use the known face with the smallest distance to the new face
-            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-            best_match_index = np.argmin(face_distances)
-            if matches[best_match_index]:
-                name = known_face_names[best_match_index]
+            # If a match was found in known_face_encodings, just use the first one.
+            if True in matches:
+                first_match_index = matches.index(True)
+                name = known_face_names[first_match_index]
+            else:
+                # If the face is unknown, process it
+                if name == "Unknown":
+                    # Find the face location using the current index
+                    top, right, bottom, left = face_locations[index]
+                    # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
+                    top *= 4
+                    right *= 4
+                    bottom *= 4
+                    left *= 4
+                    face_image = frame[top:bottom, left:right]
+                    prompt_for_name(face_image)
+                    # Break after handling the first unknown face to avoid multiple prompts in a single frame
+                    break
 
             face_names.append(name)
 
