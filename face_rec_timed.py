@@ -40,11 +40,9 @@ def prompt_for_name(frame, known_face_encodings, known_face_names, face_image):
 
     # Add the new face to the known faces
     add_new_face(known_face_encodings, known_face_names, new_face_encoding, name)
-    return name
     
-
 def list_camera_devices():
-    # checks the first 10 indexes.
+    """ List available camera devices """
     index = 0
     arr = []
     i = 10
@@ -56,11 +54,15 @@ def list_camera_devices():
         index += 1
         i -= 1
     return arr
+
 def change_camera(camera_index):
+    """ Change to available camera """
     global video_capture
     video_capture.release()
     video_capture = cv2.VideoCapture(camera_index)
+
 def interval():
+    """ StandUp Timer logic """
     global start
     global current
     # Don't duplicate things
