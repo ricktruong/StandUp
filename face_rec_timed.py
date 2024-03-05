@@ -4,98 +4,22 @@ import numpy as np
 import time
 from datetime import timedelta
 
-""" Timer Global Variables """
-# Both measured in seconds
-CHECK_INTERVAL = 10
-STAND_INTERVAL = 15 * 1
-FACE_ABSENCE_THRESHOLD = 10  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
+""" Global Variables """
+# Timer global variables
+USER_SITTING_TIME_THRESHOLD = 5                         # Maximum number of seconds the user should be sitting for
+FACE_ABSENCE_THRESHOLD = 10                             # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
+current = time.time()                                   # Current time
 
-# We don't want to tell them to stand up more often than we check
-if CHECK_INTERVAL >= STAND_INTERVAL:
-    exit()
-
-start = time.time()
-current = time.time()
-
-# face_recognition global variables
-face_encodings = []
-face_locations = []
-face_names = []
-cumulative_absence_duration = 0.0  # Total time the user has been absent
-last_absence_check_time = None  # Last time we checked for absence
-stand_command_message = False
-left = 0
-top = 0
-face_absent_start = None  # Timestamp of when a face was last seen
-stand_command_message_start_time = None
+# StandUp Notification Algorithm global variables
+face_encodings, face_locations, face_names = [], [], [] # Lists of face encodings, face locations, and face names in current frame
+last_absence_check_time = None                          # Last time we checked for absence
+cumulative_absence_duration = 0.0                       # Total time the user has been absent
+stand_command_message = False                           # Flag for issuing "Stand Up!" message
+left, top = 0, 0                                        # "Stand Up!" message formatting placeholder variables
 
 
 """ Helper Functions """
-def add_new_face(known_face_encodings, known_face_names, new_face_encoding, new_face_name):
-    """ Append the new face encoding and name to the known faces """
-    known_face_encodings.append(new_face_encoding)
-    known_face_names.append(new_face_name)
-
-def prompt_for_name(frame, known_face_encodings, known_face_names, face_image):
-    """ Prompt for a name and add the new face """
-    # Display the face image in the window
-    cv2.imshow('Video', frame)
-    cv2.waitKey(1) #Pause
-    
-    # Prompt the user for a name for the unrecognized face
-    print("An unrecognized face was detected.")
-    name = input("Please enter a name for the new face: ")
-    
-    # Learn the new face by encoding it
-    rgb_face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-    new_face_encoding = face_recognition.face_encodings(rgb_face_image)[0]
-
-    # Add the new face to the known faces
-    add_new_face(known_face_encodings, known_face_names, new_face_encoding, name)
-    
-def list_camera_devices():
-    """ List available camera devices """
-    index = 0
-    arr = []
-    i = 10
-    while i > 0:
-        cap = cv2.VideoCapture(index)
-        if cap.read()[0]:
-            arr.append(index)
-            cap.release()
-        index += 1
-        i -= 1
-    return arr
-
-def change_camera(camera_index):
-    """ Change to available camera """
-    global video_capture
-    video_capture.release()
-    video_capture = cv2.VideoCapture(camera_index)
-
-def interval():
-    """ StandUp Timer logic """
-    global start
-    global current
-    # Don't duplicate things
-    if time.time() - current > 1:
-        current = time.time()
-    else:
-        return [False, False]
-    
-    # Has 15 minutes passed?
-    if (current - start) >= STAND_INTERVAL:
-        start = time.time()
-        return [True, True]
-
-    # Has a 30 second interval passed?
-    if (current - start) >= CHECK_INTERVAL:
-        current = time.time()
-        return [True, False]
-    else:
-        return [False, False]
-
-def setup():
+def face_recognition_setup():
     """ face_recognition Setup """
     # Load image of Obama and learn to recognize Obama
     obama_image = face_recognition.load_image_file("known_pictures/obama.jpg")
@@ -123,12 +47,54 @@ def setup():
     known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, daniel_face_encodings]
     known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "DoctorDothraki"]
 
-
     return known_face_encodings, known_face_names
 
+def list_camera_devices():
+    """ List available camera devices """
+    index = 0
+    arr = []
+    i = 10
+    while i > 0:
+        cap = cv2.VideoCapture(index)
+        if cap.read()[0]:
+            arr.append(index)
+            cap.release()
+        index += 1
+        i -= 1
+    return arr
+    
+def processing_interval():
+    """ OpenCV processing interval """
+    global current
+    if time.time() - current < 1:
+        return False
+    current = time.time()
+    return True
+
+def add_new_face(known_face_encodings, known_face_names, new_face_encoding, new_face_name):
+    """ Append the new face encoding and name to the known faces """
+    known_face_encodings.append(new_face_encoding)
+    known_face_names.append(new_face_name)
+
+def prompt_for_name(frame, known_face_encodings, known_face_names, face_image):
+    """ Prompt for a name and add the new face """
+    # Display the face image in the window
+    cv2.imshow('Video', frame)
+    cv2.waitKey(1) #Pause
+    
+    # Prompt the user for a name for the unrecognized face
+    print("An unrecognized face was detected.")
+    name = input("Please enter a name for the new face: ")
+    
+    # Learn the new face by encoding it
+    rgb_face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+    new_face_encoding = face_recognition.face_encodings(rgb_face_image)[0]
+
+    # Add the new face to the known faces
+    add_new_face(known_face_encodings, known_face_names, new_face_encoding, name)
+    
 # Search the known faces for a name
 def search_faces(frame, known_face_names, known_face_encodings):
-    global face_encodings, left, top
     face_names = []
     for index, current_face_encoding in enumerate(face_encodings):
         matches = face_recognition.compare_faces(known_face_encodings, current_face_encoding)
@@ -138,20 +104,20 @@ def search_faces(frame, known_face_names, known_face_encodings):
         if True in matches:
             first_match_index = matches.index(True)
             name = known_face_names[first_match_index]
+        
+        # If the face is unknown, process it
         else:
-            # If the face is unknown, process it
-            if name == "Unknown":
-                # Find the face location using the current index
-                top, right, bottom, left = face_locations[index]
-                # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
-                top *= 4
-                right *= 4
-                bottom *= 4
-                left *= 4
-                face_image = frame[top:bottom, left:right]
-                prompt_for_name(frame, known_face_encodings, known_face_names, face_image)
-                # Break after handling the first unknown face to avoid multiple prompts in a single frame
-                break
+            # Find the face location using the current index
+            top, right, bottom, left = face_locations[index]
+            # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
+            top *= 4
+            right *= 4
+            bottom *= 4
+            left *= 4
+            face_image = frame[top:bottom, left:right]
+            prompt_for_name(frame, known_face_encodings, known_face_names, face_image)
+            # Break after handling the first unknown face to avoid multiple prompts in a single frame
+            break
 
         face_names.append(name)
 
@@ -180,7 +146,6 @@ def detectionDecision():
                 stand_command_message = False
                 cumulative_absence_duration = 0.0  # Reset the absence duration as user is present and has been notified
                 last_absence_check_time = None
-    return cumulative_absence_duration, last_absence_check_time
 
 # Decide what to display based on stand_command_message
 def display(frame):
@@ -218,9 +183,10 @@ def display(frame):
     # Display the resulting image
     cv2.imshow('Video', frame)
 
-def standup_facial_recognition(known_face_encodings, known_face_names):
+def standup_notification_algorithm(known_face_encodings, known_face_names):
     global face_encodings, face_locations, face_names, cumulative_absence_duration
-    global last_absence_check_time, stand_command_message, face_absent_start, stand_command_message_start_time
+    global last_absence_check_time, stand_command_message
+    
     """ Webcam OpenCV Functionality """
     # Get a reference to webcam #0 (the default one)
     available_cameras = list_camera_devices()
@@ -230,18 +196,12 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
     video_capture = cv2.VideoCapture(available_cameras[0])
     current_camera_index = 0
 
-    # Initialize some variables
-    process_this_frame = True
-    stand_command = False
-    
-    face_absent_start = None  # Timestamp of when a face was last seen
-    stand_command_message_start_time = None
-    
+    """ StandUp Notification Main Algorithm """
+    userSittingTime = 0                             # Number of seconds user has been sitting for
+    process_this_frame = True                       # Flag for processing OpenCV frames
     while True:
-        # Check if there is a good time to stand up
-        values = interval()
-        process_this_frame = values[0]
-        stand_command = values[1]
+        # Ensure OpenCV frames are processed every second
+        process_this_frame = processing_interval()
 
         # Grab a single frame of video
         ret, frame = video_capture.read()
@@ -258,17 +218,26 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
             face_locations = face_recognition.face_locations(rgb_small_frame)
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
+            """ StandUp Notification Logic """
+            # If a user is present / sitting and user is not supposed to be standing, begin incrementing userSittingTime
+            if face_encodings and not stand_command_message:
+                userSittingTime += 1
+            # If a user leaves, reset userSittingTime
+            else:
+                userSittingTime = 0
+
+            # If user exceeds sitting time, tell user to "Stand Up!". Reset user sitting time.
+            if userSittingTime >= USER_SITTING_TIME_THRESHOLD:
+                stand_command_message = True
+                userSittingTime = 0
+
             # Search for faces
             face_names = search_faces(frame, known_face_names, known_face_encodings)
 
-        # Decide whether or not to tell the user to stand up based on the time
-        cumulative_absence_duration, last_absence_check_time = detectionDecision()
+            # Decide whether or not to tell the user to stand up based on the time
+            detectionDecision()
 
-        if stand_command:
-            stand_command_message = True
-            stand_command_message_start_time = time.time()
-            stand_command = False
-            print("Stand up")
+            print(userSittingTime, USER_SITTING_TIME_THRESHOLD, stand_command_message)
         
         # Manipulate the viewport based on stand_command_message
         display(frame)
@@ -279,7 +248,8 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
             current_camera_index += 1
             if current_camera_index >= len(available_cameras):
                 current_camera_index = 0
-            change_camera(available_cameras[current_camera_index])
+            video_capture.release()
+            video_capture = cv2.VideoCapture(available_cameras[current_camera_index])
         elif key == ord('q'): # Hit 'q' on the keyboard to quit!
             break
 
@@ -289,11 +259,10 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
 
 def main():
     # 1. Preload known faces and names into face_recognition
-    known_face_encodings, known_face_names = setup()
+    known_face_encodings, known_face_names = face_recognition_setup()
 
     # 2. StandUp Notification Algorithm
-    standup_facial_recognition(known_face_encodings, known_face_names)
-
+    standup_notification_algorithm(known_face_encodings, known_face_names)
 
 if __name__ == "__main__":
     main()
