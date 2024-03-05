@@ -6,9 +6,9 @@ from datetime import timedelta
 
 """ Timer Global Variables """
 # Both measured in seconds
-CHECK_INTERVAL = 3
-STAND_INTERVAL = 10 * 1
-FACE_ABSENCE_THRESHOLD = 15  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
+CHECK_INTERVAL = 10
+STAND_INTERVAL = 15 * 1
+FACE_ABSENCE_THRESHOLD = 10  # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
 
 # We don't want to tell them to stand up more often than we check
 if CHECK_INTERVAL >= STAND_INTERVAL:
@@ -17,7 +17,7 @@ if CHECK_INTERVAL >= STAND_INTERVAL:
 start = time.time()
 current = time.time()
 
-# Global variables to help with refactoring
+# face_recognition global variables
 face_encodings = []
 face_locations = []
 face_names = []
@@ -28,6 +28,7 @@ left = 0
 top = 0
 face_absent_start = None  # Timestamp of when a face was last seen
 stand_command_message_start_time = None
+
 
 """ Helper Functions """
 def add_new_face(known_face_encodings, known_face_names, new_face_encoding, new_face_name):
@@ -109,16 +110,19 @@ def setup():
     trump_face_encodings = face_recognition.face_encodings(trump_image)[0]
 
     # Load image of Rick and learn to recognize Rick
-    rick_image = face_recognition.load_image_file("known_pictures/rick1.jpg")
-    rick_face_encodings = face_recognition.face_encodings(rick_image)[0]
+    # rick_image = face_recognition.load_image_file("known_pictures/rick1.jpg")
+    # rick_face_encodings = face_recognition.face_encodings(rick_image)[0]
 
     # Load image of Daniel and learn to recognize Rick
     daniel_image = face_recognition.load_image_file("known_pictures/daniel.jpg")
     daniel_face_encodings = face_recognition.face_encodings(daniel_image)[0]
 
     # Known face encodings and labels
-    known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings, daniel_face_encodings]
-    known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Rick", "DoctorDothraki"]
+    # known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, rick_face_encodings, daniel_face_encodings]
+    # known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "Rick", "DoctorDothraki"]
+    known_face_encodings = [obama_face_encoding, biden_face_encoding, trump_face_encodings, daniel_face_encodings]
+    known_face_names = ["Barack Obama", "Joe Biden", "Donald Trump", "DoctorDothraki"]
+
 
     return known_face_encodings, known_face_names
 
