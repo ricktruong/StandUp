@@ -17,6 +17,17 @@ if CHECK_INTERVAL >= STAND_INTERVAL:
 start = time.time()
 current = time.time()
 
+# Global variables to help with refactoring
+face_encodings = []
+face_locations = []
+face_names = []
+cumulative_absence_duration = 0.0  # Total time the user has been absent
+last_absence_check_time = None  # Last time we checked for absence
+stand_command_message = False
+left = 0
+top = 0
+face_absent_start = None  # Timestamp of when a face was last seen
+stand_command_message_start_time = None
 
 """ Helper Functions """
 def add_new_face(known_face_encodings, known_face_names, new_face_encoding, new_face_name):
@@ -111,8 +122,101 @@ def setup():
 
     return known_face_encodings, known_face_names
 
+# Search the known faces for a name
+def search_faces(frame, known_face_names, known_face_encodings):
+    global face_encodings, left, top
+    face_names = []
+    for index, current_face_encoding in enumerate(face_encodings):
+        matches = face_recognition.compare_faces(known_face_encodings, current_face_encoding)
+        name = "Unknown"
+
+        # If a match was found in known_face_encodings, just use the first one.
+        if True in matches:
+            first_match_index = matches.index(True)
+            name = known_face_names[first_match_index]
+        else:
+            # If the face is unknown, process it
+            if name == "Unknown":
+                # Find the face location using the current index
+                top, right, bottom, left = face_locations[index]
+                # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
+                top *= 4
+                right *= 4
+                bottom *= 4
+                left *= 4
+                face_image = frame[top:bottom, left:right]
+                prompt_for_name(frame, known_face_encodings, known_face_names, face_image)
+                # Break after handling the first unknown face to avoid multiple prompts in a single frame
+                break
+
+        face_names.append(name)
+
+    return face_names
+
+# Decide whether or not to tell the user to stand up based on the detection
+def detectionDecision():
+    global cumulative_absence_duration, last_absence_check_time, stand_command_message
+    current_time = time.time()
+    if face_names:  # If any face is detected
+        # User is present; pause the timer by not updating the cumulative_absence_duration
+        if last_absence_check_time is not None:
+            last_absence_check_time = current_time  # Update the last check time to now
+    elif stand_command_message:
+        # No known face detected; check if this is the first time we're noticing they're gone
+        if last_absence_check_time is None:
+            last_absence_check_time = current_time
+        else:
+            # Calculate how long it's been since we last updated the absence duration
+            time_since_last_check = current_time - last_absence_check_time
+            cumulative_absence_duration += time_since_last_check
+            last_absence_check_time = current_time
+
+            # Check if the cumulative absence duration exceeds the threshold
+            if cumulative_absence_duration > FACE_ABSENCE_THRESHOLD:
+                stand_command_message = False
+                cumulative_absence_duration = 0.0  # Reset the absence duration as user is present and has been notified
+                last_absence_check_time = None
+    return cumulative_absence_duration, last_absence_check_time
+
+# Decide what to display based on stand_command_message
+def display(frame):
+    global stand_command_message, left, top
+    # Display the results
+    for (top, right, bottom, left), name in zip(face_locations, face_names):
+        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
+
+        # Draw a box around the face
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+
+        # Draw a label with a name below the face
+        cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+        font = cv2.FONT_HERSHEY_DUPLEX
+        cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+
+        if stand_command_message:
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            message = "Stand up!"
+            cv2.putText(frame, message, (left + 15, top - 20), font, 1.0, (0, 255, 0), 2)
+            
+    if stand_command_message:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        remaining_time = max(FACE_ABSENCE_THRESHOLD - cumulative_absence_duration, 0)
+        remaining_time_delta = timedelta(seconds=remaining_time)
+        minutes, seconds = divmod(remaining_time_delta.seconds, 60)
+        formatted_time = f"{minutes:02d}:{seconds:02d}"
+        message = f"Time Remaining: {formatted_time}!"
+        cv2.putText(frame, message, (left-80, top - 50), font, 1.0, (252, 186, 3), 2)
+
+    # Display the resulting image
+    cv2.imshow('Video', frame)
 
 def standup_facial_recognition(known_face_encodings, known_face_names):
+    global face_encodings, face_locations, face_names, cumulative_absence_duration
+    global last_absence_check_time, stand_command_message, face_absent_start, stand_command_message_start_time
     """ Webcam OpenCV Functionality """
     # Get a reference to webcam #0 (the default one)
     available_cameras = list_camera_devices()
@@ -122,20 +226,13 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
     video_capture = cv2.VideoCapture(available_cameras[0])
     current_camera_index = 0
 
-
     # Initialize some variables
-    face_locations = []
-    face_encodings = []
-    face_names = []
     process_this_frame = True
     stand_command = False
-    stand_command_message = False
+    
     face_absent_start = None  # Timestamp of when a face was last seen
     stand_command_message_start_time = None
-    cumulative_absence_duration = 0.0  # Total time the user has been absent
-    last_absence_check_time = None  # Last time we checked for absence
-    left = 0
-    top = 0
+    
     while True:
         # Check if there is a good time to stand up
         values = interval()
@@ -145,7 +242,7 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
         # Grab a single frame of video
         ret, frame = video_capture.read()
 
-        # Only process every other frame of video to save time
+        # Only process frames every interval to save processing power
         if process_this_frame:
             # Resize frame of video to 1/4 size for faster face recognition processing
             small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
@@ -157,55 +254,11 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
             face_locations = face_recognition.face_locations(rgb_small_frame)
             face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
-            face_names = []
-            for index, current_face_encoding in enumerate(face_encodings):
-                matches = face_recognition.compare_faces(known_face_encodings, current_face_encoding)
-                name = "Unknown"
+            # Search for faces
+            face_names = search_faces(frame, known_face_names, known_face_encodings)
 
-                # If a match was found in known_face_encodings, just use the first one.
-                if True in matches:
-                    first_match_index = matches.index(True)
-                    name = known_face_names[first_match_index]
-                else:
-                    # If the face is unknown, process it
-                    if name == "Unknown":
-                        # Find the face location using the current index
-                        top, right, bottom, left = face_locations[index]
-                        # Scale the face location since we resized the frame to 1/4 size for faster face recognition processing
-                        top *= 4
-                        right *= 4
-                        bottom *= 4
-                        left *= 4
-                        face_image = frame[top:bottom, left:right]
-                        prompt_for_name(frame, known_face_encodings, known_face_names, face_image)
-                        # Break after handling the first unknown face to avoid multiple prompts in a single frame
-                        break
-
-                face_names.append(name)
-
-            
-        current_time = time.time()
-        if face_names:  # If any face is detected
-            # User is present; pause the timer by not updating the cumulative_absence_duration
-            if last_absence_check_time is not None:
-                last_absence_check_time = current_time  # Update the last check time to now
-        elif stand_command_message:
-            # No known face detected; check if this is the first time we're noticing they're gone
-            if last_absence_check_time is None:
-                last_absence_check_time = current_time
-            else:
-                # Calculate how long it's been since we last updated the absence duration
-                time_since_last_check = current_time - last_absence_check_time
-                cumulative_absence_duration += time_since_last_check
-                last_absence_check_time = current_time
-
-                # Check if the cumulative absence duration exceeds the threshold
-                if cumulative_absence_duration > FACE_ABSENCE_THRESHOLD:
-                    stand_command_message = False
-                    cumulative_absence_duration = 0.0  # Reset the absence duration as user is present and has been notified
-                    last_absence_check_time = None
-
-        # process_this_frame = not process_this_frame
+        # Decide whether or not to tell the user to stand up based on the time
+        cumulative_absence_duration, last_absence_check_time = detectionDecision()
 
         if stand_command:
             stand_command_message = True
@@ -213,38 +266,8 @@ def standup_facial_recognition(known_face_encodings, known_face_names):
             stand_command = False
             print("Stand up")
         
-        # Display the results
-        for (top, right, bottom, left), name in zip(face_locations, face_names):
-            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            top *= 4
-            right *= 4
-            bottom *= 4
-            left *= 4
-
-            # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-            # Draw a label with a name below the face
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
-
-            if stand_command_message:
-                font = cv2.FONT_HERSHEY_SIMPLEX
-                message = "Stand up!"
-                cv2.putText(frame, message, (left + 15, top - 20), font, 1.0, (0, 255, 0), 2)
-            
-        if stand_command_message:
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            remaining_time = max(FACE_ABSENCE_THRESHOLD - cumulative_absence_duration, 0)
-            remaining_time_delta = timedelta(seconds=remaining_time)
-            minutes, seconds = divmod(remaining_time_delta.seconds, 60)
-            formatted_time = f"{minutes:02d}:{seconds:02d}"
-            message = f"Time Remaining: {formatted_time}!"
-            cv2.putText(frame, message, (left-80, top - 50), font, 1.0, (252, 186, 3), 2)
-
-        # Display the resulting image
-        cv2.imshow('Video', frame)
+        # Manipulate the viewport based on stand_command_message
+        display(frame)
 
         # Check for camera change command
         key = cv2.waitKey(1) & 0xFF
