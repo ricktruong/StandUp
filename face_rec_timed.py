@@ -5,6 +5,9 @@ import time
 from datetime import timedelta
 
 """ Global Variables """
+# OpenCV global variables
+WEBCAM_FPS = 1                                         # Frames per second for OpenCV webcam processing
+
 # Timer global variables
 USER_SITTING_TIME_THRESHOLD = 5                         # Maximum number of seconds the user should be sitting for
 FACE_ABSENCE_THRESHOLD = 10                             # Number of Seconds the user should be out of frame for until we stop showing the Stand Up Message
@@ -66,7 +69,7 @@ def list_camera_devices():
 def processing_interval():
     """ OpenCV processing interval """
     global current
-    if time.time() - current < 1:
+    if time.time() - current < (1 / WEBCAM_FPS):
         return False
     current = time.time()
     return True
@@ -227,7 +230,7 @@ def standup_notification_algorithm(known_face_encodings, known_face_names):
                 userSittingTime = 0
 
             # If user exceeds sitting time, tell user to "Stand Up!". Reset user sitting time.
-            if userSittingTime >= USER_SITTING_TIME_THRESHOLD:
+            if userSittingTime >= USER_SITTING_TIME_THRESHOLD * WEBCAM_FPS:
                 stand_command_message = True
                 userSittingTime = 0
 
@@ -237,7 +240,7 @@ def standup_notification_algorithm(known_face_encodings, known_face_names):
             # Decide whether or not to tell the user to stand up based on the time
             detectionDecision()
 
-            print(userSittingTime, USER_SITTING_TIME_THRESHOLD, stand_command_message)
+            print(userSittingTime, USER_SITTING_TIME_THRESHOLD * WEBCAM_FPS, stand_command_message)
         
         # Manipulate the viewport based on stand_command_message
         display(frame)
