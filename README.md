@@ -2,7 +2,9 @@
 A simple AI-enhanced application for helping users maintain good posture in their working environment and improve ergonomics.
 
 ## Accredation
-This project's OpenCV functionality was predominantly based on a tutorial put out by [LearnEDU](https://www.youtube.com/watch?v=70L3By4pci0&list=PLtsH5f9xHBUhiYoGs8_X6_R7P4IEMPrWn&index=1&t=3s&ab_channel=LearnEDU). This project's facial recognition software largely depended on the open-source [face_recognition library](https://github.com/ageitgey/face_recognition). Lastly, StandUp would like to extend our thanks to Professor Xihua Xiao and his team of instructional assistants for all the instruction, guidance, and mentorship along the way throughout the duration of this course.
+This project's OpenCV functionality was predominantly based on a tutorial put out by [LearnEDU](https://www.youtube.com/watch?v=70L3By4pci0&list=PLtsH5f9xHBUhiYoGs8_X6_R7P4IEMPrWn&index=1&t=3s&ab_channel=LearnEDU). This project's facial recognition software largely depended on the open-source [face_recognition library](https://github.com/ageitgey/face_recognition). 
+
+Lastly, StandUp would like to extend our thanks to Professor Xihua Xiao and his team of instructional assistants for all the instruction, guidance, and mentorship along the way throughout the duration of this course.
 
 ## Setup
 ### Prerequisites
