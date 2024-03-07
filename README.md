@@ -9,6 +9,7 @@ This project's OpenCV functionality was predominantly based on a tutorial put ou
 In order to successfully launch and run StandUp, the following requirements are needed:
 - Python 3.3+
 - macOS on Linux (is runnable but not officially supported on Windows)
+
 In addition to the previous requirements, the following dependencies need to be installed:
 - DLib
 - NumPy
@@ -28,7 +29,7 @@ Change into the repository directory
 $ cd StandUp
 ```
 
-Run the main application pyton script, and enjoy :)
+Run the main application Python script, and enjoy :)
 ```bash
 python face_rec_timed.py
 ```
