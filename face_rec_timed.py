@@ -239,8 +239,6 @@ def standup_notification_algorithm(known_face_encodings, known_face_names):
 
             # Decide whether or not to tell the user to stand up based on the time
             detectionDecision()
-
-            print(userSittingTime, USER_SITTING_TIME_THRESHOLD * WEBCAM_FPS, stand_command_message)
         
         # Manipulate the viewport based on stand_command_message
         display(frame)
